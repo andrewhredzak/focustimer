@@ -1,0 +1,5 @@
+# Keep source files consistent across Windows, Git Bash, and editors.
+* text=auto eol=lf
+
+# Audio assets are binary.
+*.ogg binary

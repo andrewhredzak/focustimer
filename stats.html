@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clock Statistics</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <main class="app-shell" aria-label="Pomodoro statistics">
+    <nav class="page-nav" aria-label="App pages">
+      <a class="nav-button" href="index.html">Timer</a>
+    </nav>
+
+    <section class="stats-card stats-page-card" aria-labelledby="stats-heading">
+      <div class="section-header">
+        <h1 id="stats-heading">Statistics</h1>
+        <span class="stats-range" id="chartRange">Last 7 days</span>
+      </div>
+
+      <div class="stats-grid" aria-label="All-time focus statistics">
+        <article class="mini-stat">
+          <span>Total focus</span>
+          <strong id="totalHours">0h</strong>
+        </article>
+        <article class="mini-stat">
+          <span>Starts</span>
+          <strong id="totalStarts">0</strong>
+        </article>
+        <article class="mini-stat">
+          <span>Pauses</span>
+          <strong id="totalPauses">0</strong>
+        </article>
+        <article class="mini-stat">
+          <span>Stops</span>
+          <strong id="totalStops">0</strong>
+        </article>
+        <article class="mini-stat">
+          <span>Completed</span>
+          <strong id="totalCompleted">0</strong>
+        </article>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-bars" id="chartBars" aria-label="Focus time per day"></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

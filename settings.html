@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clock Settings</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <main class="app-shell" aria-label="Pomodoro settings">
+    <nav class="page-nav" aria-label="App pages">
+      <a class="nav-button" href="index.html">Timer</a>
+    </nav>
+
+    <section class="settings-card" aria-labelledby="settings-heading">
+      <div class="section-header">
+        <h1 id="settings-heading">Settings</h1>
+      </div>
+
+      <section class="settings-group" aria-labelledby="goal-heading">
+        <h2 id="goal-heading">Daily goal</h2>
+        <label class="goal-setting">
+          <span>Focus minutes per day</span>
+          <input type="number" id="goalMinutesInput" min="15" max="720" step="15">
+        </label>
+      </section>
+
+      <section class="settings-group" aria-labelledby="alarm-heading">
+        <h2 id="alarm-heading">Alarm sound</h2>
+        <fieldset class="alarm-options" id="alarmOptions">
+          <legend>Timer completion sound</legend>
+
+          <label class="alarm-choice">
+            <input type="radio" name="alarmSound" value="alarm-1">
+            <span>
+              <strong>Alarm 1</strong>
+              <small>ElevenLabs Generation 4</small>
+            </span>
+          </label>
+
+          <label class="alarm-choice">
+            <input type="radio" name="alarmSound" value="alarm-2">
+            <span>
+              <strong>Alarm 2</strong>
+              <small>ElevenLabs Generation 3</small>
+            </span>
+          </label>
+        </fieldset>
+      </section>
+
+      <fieldset class="theme-options" id="themeOptions">
+        <legend>Color scheme</legend>
+
+        <label class="theme-choice theme-graphite">
+          <input type="radio" name="theme" value="graphite">
+          <span class="theme-swatch" aria-hidden="true"></span>
+          <span>
+            <strong>Graphite</strong>
+            <small>Classic dark focus</small>
+          </span>
+        </label>
+
+        <label class="theme-choice theme-ocean">
+          <input type="radio" name="theme" value="ocean">
+          <span class="theme-swatch" aria-hidden="true"></span>
+          <span>
+            <strong>Ocean</strong>
+            <small>Deep blue and teal</small>
+          </span>
+        </label>
+
+        <label class="theme-choice theme-forest">
+          <input type="radio" name="theme" value="forest">
+          <span class="theme-swatch" aria-hidden="true"></span>
+          <span>
+            <strong>Forest</strong>
+            <small>Quiet green tones</small>
+          </span>
+        </label>
+
+        <label class="theme-choice theme-ember">
+          <input type="radio" name="theme" value="ember">
+          <span class="theme-swatch" aria-hidden="true"></span>
+          <span>
+            <strong>Ember</strong>
+            <small>Warm low-light palette</small>
+          </span>
+        </label>
+      </fieldset>
+    </section>
+  </main>
+</body>
+</html>

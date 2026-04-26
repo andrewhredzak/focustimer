@@ -12,6 +12,7 @@ const ALARM_SOUNDS = {
   "alarm-1": "audio/alarm-1.ogg",
   "alarm-2": "audio/alarm-2.ogg"
 };
+const SPHERE_PARTICLE_COUNT = 180;
 
 const elements = {
   durationMinutes: document.querySelector("#durationMinutes"),
@@ -19,7 +20,7 @@ const elements = {
   startButton: document.querySelector("#startButton"),
   sessionPanel: document.querySelector("#sessionPanel"),
   sessionLabel: document.querySelector("#sessionLabel"),
-  sessionMeter: document.querySelector("#sessionMeter"),
+  sessionSphere: document.querySelector("#sessionSphere"),
   pauseButton: document.querySelector("#pauseButton"),
   yesterdayMinutes: document.querySelector("#yesterdayMinutes"),
   goalAmount: document.querySelector("#goalAmount"),
@@ -69,6 +70,17 @@ let timer = {
   sessionDate: null
 };
 
+let sphereState = {
+  ctx: null,
+  frameId: null,
+  particles: [],
+  targetProgress: 1,
+  renderedProgress: 1,
+  width: 0,
+  height: 0,
+  dpr: 1
+};
+
 let settingsShortcutStreak = 0;
 let durationTypingActive = false;
 let previewAlarm = null;
@@ -80,6 +92,220 @@ function setStartReady(isReady) {
   }
 
   elements.startButton.classList.toggle("is-ready", isReady);
+}
+
+function initSessionSphere() {
+  if (!hasTimerView || !elements.sessionSphere) {
+    return;
+  }
+
+  sphereState.ctx = elements.sessionSphere.getContext("2d");
+  sphereState.particles = createSphereParticles(SPHERE_PARTICLE_COUNT);
+}
+
+function createSphereParticles(count) {
+  const particles = [];
+  const offset = 2 / count;
+  const increment = Math.PI * (3 - Math.sqrt(5));
+
+  for (let index = 0; index < count; index += 1) {
+    const y = index * offset - 1 + offset / 2;
+    const radius = Math.sqrt(1 - y * y);
+    const angle = index * increment;
+
+    particles.push({
+      x: Math.cos(angle) * radius,
+      y,
+      z: Math.sin(angle) * radius,
+      phase: index * 0.37,
+      size: 0.4 + (index % 7) * 0.08
+    });
+  }
+
+  return particles;
+}
+
+function resizeSessionSphere() {
+  if (!hasTimerView || !elements.sessionSphere) {
+    return false;
+  }
+
+  const rect = elements.sessionSphere.getBoundingClientRect();
+
+  if (!rect.width || !rect.height) {
+    return false;
+  }
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const width = Math.round(rect.width * dpr);
+  const height = Math.round(rect.height * dpr);
+
+  if (elements.sessionSphere.width !== width || elements.sessionSphere.height !== height) {
+    elements.sessionSphere.width = width;
+    elements.sessionSphere.height = height;
+  }
+
+  sphereState.width = width;
+  sphereState.height = height;
+  sphereState.dpr = dpr;
+  return true;
+}
+
+function setSessionSphereProgress(progress, snap = false) {
+  sphereState.targetProgress = clamp(progress, 0, 1);
+
+  if (snap) {
+    sphereState.renderedProgress = sphereState.targetProgress;
+  }
+
+  renderSessionSphere(performance.now());
+}
+
+function startSessionSphere() {
+  if (!hasTimerView || !elements.sessionSphere) {
+    return;
+  }
+
+  resizeSessionSphere();
+
+  if (sphereState.frameId) {
+    return;
+  }
+
+  sphereState.frameId = requestAnimationFrame(drawSessionSphere);
+}
+
+function stopSessionSphere() {
+  if (sphereState.frameId) {
+    cancelAnimationFrame(sphereState.frameId);
+    sphereState.frameId = null;
+  }
+
+  setSessionSphereProgress(0, true);
+}
+
+function drawSessionSphere(timestamp) {
+  sphereState.frameId = null;
+  renderSessionSphere(timestamp);
+
+  if (!hasTimerView || elements.sessionPanel.hidden) {
+    return;
+  }
+
+  sphereState.frameId = requestAnimationFrame(drawSessionSphere);
+}
+
+function renderSessionSphere(timestamp = 0) {
+  if (!sphereState.ctx || !resizeSessionSphere()) {
+    return;
+  }
+
+  const { ctx, width, height, dpr, particles } = sphereState;
+  ctx.clearRect(0, 0, width, height);
+
+  const progressDelta = sphereState.targetProgress - sphereState.renderedProgress;
+  sphereState.renderedProgress = Math.abs(progressDelta) < 0.001
+    ? sphereState.targetProgress
+    : sphereState.renderedProgress + progressDelta * 0.12;
+
+  const progress = clamp(sphereState.renderedProgress, 0, 1);
+
+  if (progress <= 0.001) {
+    return;
+  }
+
+  const time = timestamp * 0.001;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const maxRadius = Math.min(width, height) * 0.33;
+  const radius = maxRadius * Math.pow(progress, 0.92);
+  const colors = getSessionSphereColors();
+  const glowRadius = radius * 1.25;
+  const glow = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, glowRadius);
+
+  glow.addColorStop(0, colorWithAlpha(colors.accent, 0.2 * progress));
+  glow.addColorStop(0.55, colorWithAlpha(colors.strong, 0.08 * progress));
+  glow.addColorStop(1, colorWithAlpha(colors.strong, 0));
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, glowRadius, 0, Math.PI * 2);
+  ctx.fill();
+
+  const rotationY = time * 0.48;
+  const rotationX = 0.22 + Math.sin(time * 0.27) * 0.16;
+  const cosY = Math.cos(rotationY);
+  const sinY = Math.sin(rotationY);
+  const cosX = Math.cos(rotationX);
+  const sinX = Math.sin(rotationX);
+
+  const projected = particles.map((particle, index) => {
+    const rotatedX = particle.x * cosY - particle.z * sinY;
+    const rotatedZ = particle.x * sinY + particle.z * cosY;
+    const rotatedY = particle.y * cosX - rotatedZ * sinX;
+    const depthZ = particle.y * sinX + rotatedZ * cosX;
+    const pulse = Math.sin(time * 2.2 + particle.phase) * 0.12;
+    const shellRadius = radius * (1 + pulse * progress);
+    const depth = (depthZ + 1) / 2;
+    const perspective = 0.74 + depth * 0.34;
+
+    return {
+      x: centerX + rotatedX * shellRadius * perspective,
+      y: centerY + rotatedY * shellRadius * perspective,
+      depth,
+      index,
+      radius: (1.2 + depth * 2.6 + particle.size) * dpr * Math.pow(progress, 0.45)
+    };
+  });
+
+  projected
+    .sort((a, b) => a.depth - b.depth)
+    .forEach((particle) => {
+      const alpha = (0.18 + particle.depth * 0.68) * Math.min(1, progress * 1.7);
+      const color = particle.index % 3 === 0
+        ? colors.blue
+        : particle.depth > 0.62
+          ? colors.strong
+          : colors.accent;
+
+      ctx.fillStyle = colorWithAlpha(color, alpha);
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+      ctx.fill();
+    });
+}
+
+function getSessionSphereColors() {
+  const styles = getComputedStyle(document.documentElement);
+
+  return {
+    accent: styles.getPropertyValue("--accent").trim() || "#71b9ee",
+    strong: styles.getPropertyValue("--accent-strong").trim() || "#24d0b0",
+    blue: styles.getPropertyValue("--accent-blue").trim() || "#4aa6f6"
+  };
+}
+
+function colorWithAlpha(color, alpha) {
+  const rgb = parseHexColor(color);
+
+  if (!rgb) {
+    return color;
+  }
+
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+}
+
+function parseHexColor(color) {
+  const match = color.trim().match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    r: parseInt(match[1], 16),
+    g: parseInt(match[2], 16),
+    b: parseInt(match[3], 16)
+  };
 }
 
 function todayKey(offsetDays = 0) {
@@ -326,8 +552,9 @@ function updateTimerView() {
     return;
   }
 
-  const elapsed = timer.totalSeconds - timer.remainingSeconds;
-  const percent = timer.totalSeconds > 0 ? clamp((elapsed / timer.totalSeconds) * 100, 0, 100) : 0;
+  const remainingRatio = timer.totalSeconds > 0
+    ? clamp(timer.remainingSeconds / timer.totalSeconds, 0, 1)
+    : 0;
   const label = "Focus session";
 
   if (elements.sessionPanel.hidden) {
@@ -338,7 +565,7 @@ function updateTimerView() {
   elements.durationMinutes.type = "text";
   elements.durationMinutes.value = formatTimer(timer.remainingSeconds);
   elements.durationMinutes.readOnly = true;
-  elements.sessionMeter.style.width = `${percent}%`;
+  setSessionSphereProgress(remainingRatio);
   elements.pauseButton.textContent = timer.running ? "Pause" : "Resume";
 
   if (!elements.sessionPanel.hidden) {
@@ -368,6 +595,8 @@ function startSession() {
   timer.sessionDate = session.date;
   elements.sessionPanel.hidden = false;
   elements.startButton.hidden = true;
+  setSessionSphereProgress(1, true);
+  startSessionSphere();
   tickStart();
   updateSettingsView();
   updateTimerView();
@@ -400,6 +629,8 @@ function tick() {
 function completeSession() {
   clearInterval(timer.intervalId);
   timer.intervalId = null;
+  timer.remainingSeconds = 0;
+  updateTimerView();
   finishSession("completed", timer.totalSeconds);
   playAlarm();
   endSession();
@@ -471,6 +702,7 @@ function endSession() {
   clearInterval(timer.intervalId);
   timer.intervalId = null;
   timer.running = false;
+  stopSessionSphere();
   elements.sessionPanel.hidden = true;
   elements.startButton.hidden = false;
   setStartReady(false);
@@ -620,6 +852,7 @@ function bindEvents() {
     elements.durationMinutes.addEventListener("keydown", handleDurationInputKeydown);
     elements.startButton.addEventListener("click", startSession);
     elements.pauseButton.addEventListener("click", pauseOrResume);
+    window.addEventListener("resize", () => renderSessionSphere(performance.now()));
   }
 }
 
@@ -763,6 +996,7 @@ function updateSettingsPage() {
 }
 
 bindEvents();
+initSessionSphere();
 resetTimerModel();
 updateSettingsView();
 updateTimerView();

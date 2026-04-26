@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Clock Settings</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <script src="script.js" defer></script>
 </head>
@@ -25,6 +28,14 @@
         <label class="goal-setting">
           <span>Focus minutes per day</span>
           <input type="number" id="goalMinutesInput" min="15" max="720" step="15">
+        </label>
+      </section>
+
+      <section class="settings-group" aria-labelledby="display-heading">
+        <h2 id="display-heading">Timer display</h2>
+        <label class="toggle-setting">
+          <span>Animated sphere</span>
+          <input type="checkbox" id="sphereEnabledInput">
         </label>
       </section>
 
@@ -87,6 +98,24 @@
           <span>
             <strong>Ember</strong>
             <small>Warm low-light palette</small>
+          </span>
+        </label>
+
+        <label class="theme-choice theme-archive">
+          <input type="radio" name="theme" value="archive">
+          <span class="theme-swatch" aria-hidden="true"></span>
+          <span>
+            <strong>Gambit</strong>
+            <small>Paper, sage, and signal red</small>
+          </span>
+        </label>
+
+        <label class="theme-choice theme-nasa">
+          <input type="radio" name="theme" value="nasa">
+          <span class="theme-swatch" aria-hidden="true"></span>
+          <span>
+            <strong>NASA</strong>
+            <small>Console cream and mission blue</small>
           </span>
         </label>
       </fieldset>

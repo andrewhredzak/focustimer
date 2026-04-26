@@ -4,16 +4,23 @@ const MIN_DURATION = 1;
 const MAX_DURATION = 180;
 const CHART_DAYS = 7;
 const DEFAULT_THEME = "graphite";
-const THEME_NAMES = ["graphite", "ocean", "forest", "ember"];
+const THEME_NAMES = ["graphite", "ocean", "forest", "ember", "archive", "nasa"];
 const SETTINGS_SHORTCUT_COUNT = 3;
 const DEFAULT_ALARM = "alarm-1";
 const ALARM_REPEAT_COUNT = 3;
+const DEMO_DAILY_STATS = [
+  { offset: -4, focusMinutes: 82, starts: 3, pauses: 1, stops: 0, completed: 2 },
+  { offset: -3, focusMinutes: 118, starts: 4, pauses: 2, stops: 1, completed: 3 },
+  { offset: -2, focusMinutes: 96, starts: 3, pauses: 1, stops: 0, completed: 2 },
+  { offset: -1, focusMinutes: 135, starts: 5, pauses: 3, stops: 1, completed: 4 },
+  { offset: 0, focusMinutes: 64, starts: 2, pauses: 1, stops: 0, completed: 1 }
+];
 const ALARM_SOUNDS = {
   "alarm-1": "assets/audio/alarm-1.ogg",
   "alarm-2": "assets/audio/alarm-2.ogg"
 };
-const SPHERE_PARTICLE_COUNT = 360;
-const SPHERE_PARTICLE_SIZE_SCALE = 0.8;
+const SPHERE_PARTICLE_COUNT = 7200;
+const SPHERE_PARTICLE_SIZE_SCALE = 0.6;
 
 const elements = {
   durationMinutes: document.querySelector("#durationMinutes"),
@@ -38,6 +45,7 @@ const elements = {
   chartRange: document.querySelector("#chartRange"),
   themeOptions: document.querySelector("#themeOptions"),
   alarmOptions: document.querySelector("#alarmOptions"),
+  sphereEnabledInput: document.querySelector("#sphereEnabledInput"),
   goalMinutesInput: document.querySelector("#goalMinutesInput")
 };
 
@@ -51,6 +59,7 @@ const defaultState = {
   goalMinutes: 120,
   theme: DEFAULT_THEME,
   alarmSound: DEFAULT_ALARM,
+  sphereEnabled: true,
   db: {
     version: DB_VERSION,
     daily: {},
@@ -59,6 +68,7 @@ const defaultState = {
 };
 
 let state = loadState();
+seedRecentDemoStats();
 applyTheme(state.theme);
 
 let timer = {
@@ -122,6 +132,7 @@ function createSphereParticles(count) {
       z: Math.sin(angle) * radius,
       phase: index * 0.37,
       radiusOffset,
+      behaviorType: seededNoise(index, 3) > 0.52 ? "orbital" : "radial",
       size: 0.4 + seededNoise(index, 2) * 0.56
     });
   }
@@ -168,11 +179,15 @@ function setSessionSphereProgress(progress, snap = false) {
     sphereState.lastTimestamp = 0;
   }
 
+  if (!state.sphereEnabled) {
+    return;
+  }
+
   renderSessionSphere(performance.now());
 }
 
 function startSessionSphere() {
-  if (!hasTimerView || !elements.sessionSphere) {
+  if (!state.sphereEnabled || !hasTimerView || !elements.sessionSphere) {
     return;
   }
 
@@ -192,6 +207,24 @@ function stopSessionSphere() {
   }
 
   setSessionSphereProgress(0, true);
+}
+
+function updateSphereVisibility() {
+  if (!hasTimerView || !elements.sessionSphere) {
+    return;
+  }
+
+  const shouldShow = state.sphereEnabled && elements.sessionPanel.hidden === false;
+  elements.sessionSphere.hidden = !shouldShow;
+
+  if (!state.sphereEnabled) {
+    stopSessionSphere();
+    return;
+  }
+
+  if (shouldShow) {
+    startSessionSphere();
+  }
 }
 
 function drawSessionSphere(timestamp) {
@@ -265,18 +298,24 @@ function renderSessionSphere(timestamp = 0) {
     const pulse = Math.sin(time * (0.9 + energyCurve * 18) + particle.phase) * (0.01 + chaos * 0.9);
     const tremor = Math.sin(time * (2.4 + energy * 32) + particle.phase * 1.7) * chaos;
     const crossTremor = Math.cos(time * (1.8 + energy * 27) + particle.phase * 2.3) * chaos;
-    const shellRadius = radius * (1 + particle.radiusOffset + pulse * particleEnergy);
+    const isOrbital = particle.behaviorType === "orbital";
+    const radialBurst = isOrbital ? pulse * 0.42 : pulse * 1.25;
+    const orbitalDrift = isOrbital
+      ? Math.sin(time * (0.6 + energy * 9.5) + particle.phase * 2.8) * chaos
+      : 0;
+    const shellRadius = radius * (1 + particle.radiusOffset + radialBurst * particleEnergy);
     const depth = (depthZ + 1) / 2;
     const perspective = 0.74 + depth * 0.34;
-    const jitter = radius * 0.34 * tremor * particleEnergy;
-    const swirl = radius * 0.2 * crossTremor * particleEnergy;
+    const jitter = radius * (isOrbital ? 0.14 : 0.42) * tremor * particleEnergy;
+    const swirl = radius * (isOrbital ? 0.58 : 0.16) * (crossTremor + orbitalDrift) * particleEnergy;
 
     return {
       x: centerX + (rotatedX * shellRadius + particle.y * jitter - rotatedY * swirl) * perspective,
       y: centerY + (rotatedY * shellRadius + rotatedX * jitter + rotatedX * swirl) * perspective,
       depth,
       index,
-      radius: (1.2 + depth * 2.6 + particle.size + energy * 3.2) * dpr * Math.pow(progress, 0.45) * SPHERE_PARTICLE_SIZE_SCALE
+      type: particle.behaviorType,
+      radius: (1.2 + depth * 2.6 + particle.size + energy * (isOrbital ? 2.1 : 3.8)) * dpr * Math.pow(progress, 0.45) * SPHERE_PARTICLE_SIZE_SCALE
     };
   });
 
@@ -284,11 +323,7 @@ function renderSessionSphere(timestamp = 0) {
     .sort((a, b) => a.depth - b.depth)
     .forEach((particle) => {
       const alpha = (0.18 + particle.depth * 0.68) * Math.min(1, progress * (1.7 + energy * 7.5));
-      const color = particle.index % 3 === 0
-        ? colors.blue
-        : particle.depth > 0.62
-          ? colors.strong
-          : colors.accent;
+      const color = getEnergyParticleColor(colors, particle, energy);
 
       ctx.fillStyle = colorWithAlpha(color, alpha);
       ctx.beginPath();
@@ -307,7 +342,40 @@ function getSessionSphereColors() {
   return {
     accent: tuneHexColor(styles.getPropertyValue("--accent").trim() || "#71b9ee", colorMode),
     strong: tuneHexColor(styles.getPropertyValue("--accent-strong").trim() || "#24d0b0", colorMode),
-    blue: tuneHexColor(styles.getPropertyValue("--accent-blue").trim() || "#4aa6f6", colorMode)
+    blue: tuneHexColor(styles.getPropertyValue("--accent-blue").trim() || "#4aa6f6", colorMode),
+    hot: tuneHexColor("#ff2a1f", colorMode)
+  };
+}
+
+function getEnergyParticleColor(colors, particle, energy) {
+  const baseColor = particle.index % 3 === 0
+    ? colors.blue
+    : particle.type === "orbital"
+      ? colors.accent
+      : particle.depth > 0.62
+      ? colors.strong
+      : colors.accent;
+
+  if (energy < 0.18) {
+    return mixColors(baseColor, particle.type === "orbital" ? colors.accent : colors.blue, 0.24);
+  }
+
+  if (energy < 0.62) {
+    const targetColor = particle.type === "orbital" ? colors.blue : colors.strong;
+    return mixColors(baseColor, targetColor, (energy - 0.18) / 0.44);
+  }
+
+  const highEnergyBase = particle.type === "orbital" ? colors.blue : colors.strong;
+  return mixColors(highEnergyBase, colors.hot, (energy - 0.62) / 0.38);
+}
+
+function mixColors(from, to, amount) {
+  const mix = clamp(amount, 0, 1);
+
+  return {
+    r: Math.round(from.r + (to.r - from.r) * mix),
+    g: Math.round(from.g + (to.g - from.g) * mix),
+    b: Math.round(from.b + (to.b - from.b) * mix)
   };
 }
 
@@ -370,6 +438,39 @@ function createDayStats() {
   };
 }
 
+function seedRecentDemoStats() {
+  let seededAnyDay = false;
+
+  DEMO_DAILY_STATS.forEach((demoDay) => {
+    const date = todayKey(demoDay.offset);
+    const existingDay = state.db.daily[date] || createDayStats();
+    const hasExistingDayStats = (
+      Number(existingDay.focusSeconds) ||
+      Number(existingDay.starts) ||
+      Number(existingDay.pauses) ||
+      Number(existingDay.stops) ||
+      Number(existingDay.completed)
+    );
+
+    if (hasExistingDayStats) {
+      return;
+    }
+
+    state.db.daily[date] = {
+      focusSeconds: demoDay.focusMinutes * 60,
+      starts: demoDay.starts,
+      pauses: demoDay.pauses,
+      stops: demoDay.stops,
+      completed: demoDay.completed
+    };
+    seededAnyDay = true;
+  });
+
+  if (seededAnyDay) {
+    saveState();
+  }
+}
+
 function loadState() {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -383,6 +484,7 @@ function loadState() {
       goalMinutes: clamp(Number(stored.goalMinutes) || defaultState.goalMinutes, 15, 720),
       theme: THEME_NAMES.includes(stored.theme) ? stored.theme : DEFAULT_THEME,
       alarmSound: ALARM_SOUNDS[stored.alarmSound] ? stored.alarmSound : DEFAULT_ALARM,
+      sphereEnabled: stored.sphereEnabled !== false,
       db: normalizeDb(stored)
     };
 
@@ -453,6 +555,13 @@ function setAlarmSound(alarmSound) {
   saveState();
   updateSettingsPage();
   playAlarmPreview(alarmSound);
+}
+
+function setSphereEnabled(isEnabled) {
+  state.sphereEnabled = isEnabled;
+  saveState();
+  updateSphereVisibility();
+  updateSettingsPage();
 }
 
 function clamp(value, min, max) {
@@ -598,7 +707,7 @@ function updateTimerView() {
   const remainingRatio = timer.totalSeconds > 0
     ? clamp(timer.remainingSeconds / timer.totalSeconds, 0, 1)
     : 0;
-  const label = "Focus session";
+  const label = "focus";
 
   if (elements.sessionPanel.hidden) {
     return;
@@ -608,6 +717,7 @@ function updateTimerView() {
   elements.durationMinutes.value = formatTimer(timer.remainingSeconds);
   elements.durationMinutes.readOnly = true;
   setSessionSphereProgress(remainingRatio);
+  updateSphereVisibility();
   if (elements.pauseButton) {
     elements.pauseButton.textContent = timer.running ? "Pause" : "Resume";
   }
@@ -640,7 +750,7 @@ function startSession() {
   elements.sessionPanel.hidden = false;
   elements.startButton.hidden = true;
   setSessionSphereProgress(1, true);
-  startSessionSphere();
+  updateSphereVisibility();
   tickStart();
   updateSettingsView();
   updateTimerView();
@@ -751,7 +861,8 @@ function endSession() {
   elements.startButton.hidden = false;
   setStartReady(false);
   resetTimerModel();
-  document.title = "Clock Focus Session";
+  updateSphereVisibility();
+  document.title = "focus";
   updateSettingsView();
   updateTimerView();
   updateProgressView();
@@ -890,6 +1001,9 @@ function bindEvents() {
     });
 
     elements.goalMinutesInput.addEventListener("change", updateGoalFromSettings);
+    elements.sphereEnabledInput.addEventListener("change", (event) => {
+      setSphereEnabled(event.target.checked);
+    });
   }
 
   if (hasTimerView) {
@@ -1042,6 +1156,7 @@ function updateSettingsPage() {
   }
 
   elements.goalMinutesInput.value = state.goalMinutes;
+  elements.sphereEnabledInput.checked = state.sphereEnabled;
 }
 
 bindEvents();
@@ -1049,5 +1164,6 @@ initSessionSphere();
 resetTimerModel();
 updateSettingsView();
 updateTimerView();
+updateSphereVisibility();
 updateProgressView();
 updateSettingsPage();

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clock Daily Progress</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <main class="app-shell" aria-label="Pomodoro daily progress">
+    <nav class="page-nav" aria-label="App pages">
+      <a class="nav-button" href="index.html">Timer</a>
+      <a class="nav-button" href="stats.html">Statistics</a>
+    </nav>
+
+    <section class="progress-card progress-page-card" aria-labelledby="progress-heading">
+      <div class="section-header">
+        <h1 id="progress-heading">Daily progress</h1>
+        <a class="nav-button stats-nav-button" href="stats.html">Statistics</a>
+      </div>
+
+      <div class="progress-layout">
+        <article class="stat">
+          <span class="stat-label">Yesterday</span>
+          <strong id="yesterdayMinutes">0</strong>
+          <span class="stat-unit">minutes</span>
+        </article>
+
+        <article class="progress-ring" id="progressRing" aria-label="Daily goal is 2 hours, 0 minutes completed">
+          <div class="ring" id="ringGraphic"></div>
+          <div class="ring-center">
+            <span>Daily goal</span>
+            <strong id="goalAmount">2</strong>
+            <span id="goalUnit">hours</span>
+          </div>
+        </article>
+
+        <article class="stat">
+          <span class="stat-label">Streak</span>
+          <strong id="streakDays">0</strong>
+          <span class="stat-unit">days</span>
+        </article>
+      </div>
+
+      <p class="completed" id="completedText">Completed: 0 minutes</p>
+    </section>
+  </main>
+</body>
+</html>

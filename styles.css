@@ -191,6 +191,11 @@ input[type="number"]::-webkit-inner-spin-button {
   padding: 0 12px;
 }
 
+.top-row.timer-only {
+  grid-template-columns: minmax(330px, 570px);
+  justify-content: center;
+}
+
 .icon-button {
   width: 38px;
   height: 38px;
@@ -209,7 +214,8 @@ input[type="number"]::-webkit-inner-spin-button {
 .focus-card,
 .progress-card,
 .stats-card,
-.settings-card {
+.settings-card,
+.menu-card {
   margin: 0 0 16px;
   background: var(--surface);
   border: 1px solid var(--line-soft);
@@ -223,11 +229,16 @@ input[type="number"]::-webkit-inner-spin-button {
   padding: 42px 28px 48px;
   display: grid;
   align-items: center;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .focus-content {
   max-width: 570px;
   margin: 0 auto;
+  display: grid;
+  justify-items: center;
   text-align: center;
 }
 
@@ -259,11 +270,12 @@ h1 {
   width: 100%;
   height: auto;
   grid-template-columns: 1fr;
-  margin-bottom: 34px;
+  margin-bottom: 0;
   overflow: visible;
   background: transparent;
   border-bottom: 0;
   border-radius: 0;
+  order: 2;
 }
 
 .duration-value {
@@ -279,7 +291,7 @@ h1 {
   background: transparent;
   border: 0;
   outline: 0;
-  font-size: 64px;
+  font-size: 128px;
   line-height: 0.95;
   font-weight: 350;
   text-align: center;
@@ -290,7 +302,7 @@ h1 {
 }
 
 .duration-picker.is-timing .minutes {
-  font-size: 98px;
+  font-size: 126px;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
@@ -340,17 +352,15 @@ h1 {
 .session-panel {
   width: 100%;
   margin: 0 auto;
-}
-
-.session-label {
-  color: var(--muted);
-  font-size: 22px;
+  display: grid;
+  justify-items: center;
+  order: 1;
 }
 
 .session-sphere {
-  width: min(72vw, 210px);
+  width: min(86vw, 560px);
   aspect-ratio: 1;
-  margin: 14px auto 20px;
+  margin: 0 auto 20px;
   display: grid;
   place-items: center;
   overflow: visible;
@@ -360,26 +370,6 @@ h1 {
   width: 100%;
   height: 100%;
   display: block;
-}
-
-.session-actions {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-}
-
-.secondary-button {
-  min-height: 36px;
-  padding: 7px 15px;
-  color: var(--text);
-  background: var(--control);
-  border: 1px solid var(--control-border);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.secondary-button:hover {
-  background: var(--surface-hover);
 }
 
 .section-header h1,
@@ -392,6 +382,10 @@ h1 {
 .progress-card {
   min-height: 388px;
   padding: 15px 18px 28px;
+}
+
+.progress-page-card {
+  margin: 0 12px 16px;
 }
 
 .stats-card {
@@ -407,6 +401,26 @@ h1 {
   width: min(620px, calc(100% - 24px));
   margin: 12px auto 16px;
   padding: 18px;
+}
+
+.menu-card {
+  width: min(420px, calc(100% - 24px));
+  margin: 12px auto 16px;
+  padding: 18px;
+}
+
+.menu-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.menu-button {
+  min-height: 48px;
+  font-size: 18px;
+}
+
+.timer-menu-button {
+  margin-top: 12px;
 }
 
 .settings-group {

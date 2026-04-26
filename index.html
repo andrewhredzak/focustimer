@@ -10,7 +10,7 @@
 </head>
 <body>
   <main class="app-shell" aria-label="Pomodoro focus app">
-    <div class="top-row">
+    <div class="top-row timer-only">
       <section class="focus-card" aria-label="Focus session">
         <div class="focus-content">
           <div class="duration-picker" aria-label="Focus session duration">
@@ -25,47 +25,11 @@
           </button>
 
           <div class="session-panel" id="sessionPanel" hidden>
-            <p class="session-label" id="sessionLabel">Focus session</p>
             <div class="session-sphere" aria-hidden="true">
               <canvas id="sessionSphere" width="260" height="260"></canvas>
             </div>
-            <div class="session-actions">
-              <button class="secondary-button" id="pauseButton">Pause</button>
-            </div>
           </div>
         </div>
-      </section>
-
-      <section class="progress-card" aria-labelledby="progress-heading">
-        <div class="section-header">
-          <h2 id="progress-heading">Daily progress</h2>
-          <a class="nav-button stats-nav-button" href="stats.html">Statistics</a>
-        </div>
-
-        <div class="progress-layout">
-          <article class="stat">
-            <span class="stat-label">Yesterday</span>
-            <strong id="yesterdayMinutes">0</strong>
-            <span class="stat-unit">minutes</span>
-          </article>
-
-          <article class="progress-ring" id="progressRing" aria-label="Daily goal is 2 hours, 1 hour and 40 minutes completed">
-            <div class="ring" id="ringGraphic"></div>
-            <div class="ring-center">
-              <span>Daily goal</span>
-              <strong id="goalAmount">2</strong>
-              <span id="goalUnit">hours</span>
-            </div>
-          </article>
-
-          <article class="stat">
-            <span class="stat-label">Streak</span>
-            <strong id="streakDays">0</strong>
-            <span class="stat-unit">days</span>
-          </article>
-        </div>
-
-        <p class="completed" id="completedText">Completed: 0 minutes</p>
       </section>
     </div>
   </main>

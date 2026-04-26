@@ -5,21 +5,21 @@ const MAX_DURATION = 180;
 const CHART_DAYS = 7;
 const DEFAULT_THEME = "graphite";
 const THEME_NAMES = ["graphite", "ocean", "forest", "ember"];
-const SETTINGS_SHORTCUT_COUNT = 5;
+const SETTINGS_SHORTCUT_COUNT = 3;
 const DEFAULT_ALARM = "alarm-1";
 const ALARM_REPEAT_COUNT = 3;
 const ALARM_SOUNDS = {
   "alarm-1": "assets/audio/alarm-1.ogg",
   "alarm-2": "assets/audio/alarm-2.ogg"
 };
-const SPHERE_PARTICLE_COUNT = 180;
+const SPHERE_PARTICLE_COUNT = 360;
+const SPHERE_PARTICLE_SIZE_SCALE = 0.8;
 
 const elements = {
   durationMinutes: document.querySelector("#durationMinutes"),
   durationPicker: document.querySelector(".duration-picker"),
   startButton: document.querySelector("#startButton"),
   sessionPanel: document.querySelector("#sessionPanel"),
-  sessionLabel: document.querySelector("#sessionLabel"),
   sessionSphere: document.querySelector("#sessionSphere"),
   pauseButton: document.querySelector("#pauseButton"),
   yesterdayMinutes: document.querySelector("#yesterdayMinutes"),
@@ -76,6 +76,8 @@ let sphereState = {
   particles: [],
   targetProgress: 1,
   renderedProgress: 1,
+  spin: 0,
+  lastTimestamp: 0,
   width: 0,
   height: 0,
   dpr: 1
@@ -112,17 +114,24 @@ function createSphereParticles(count) {
     const y = index * offset - 1 + offset / 2;
     const radius = Math.sqrt(1 - y * y);
     const angle = index * increment;
+    const radiusOffset = (seededNoise(index, 1) - 0.5) * 0.62;
 
     particles.push({
       x: Math.cos(angle) * radius,
       y,
       z: Math.sin(angle) * radius,
       phase: index * 0.37,
-      size: 0.4 + (index % 7) * 0.08
+      radiusOffset,
+      size: 0.4 + seededNoise(index, 2) * 0.56
     });
   }
 
   return particles;
+}
+
+function seededNoise(index, salt) {
+  const value = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
+  return value - Math.floor(value);
 }
 
 function resizeSessionSphere() {
@@ -156,6 +165,7 @@ function setSessionSphereProgress(progress, snap = false) {
 
   if (snap) {
     sphereState.renderedProgress = sphereState.targetProgress;
+    sphereState.lastTimestamp = 0;
   }
 
   renderSessionSphere(performance.now());
@@ -215,24 +225,31 @@ function renderSessionSphere(timestamp = 0) {
   }
 
   const time = timestamp * 0.001;
+  const deltaTime = sphereState.lastTimestamp
+    ? Math.min((timestamp - sphereState.lastTimestamp) / 1000, 0.05)
+    : 0;
+  sphereState.lastTimestamp = timestamp;
   const centerX = width / 2;
   const centerY = height / 2;
   const maxRadius = Math.min(width, height) * 0.33;
   const radius = maxRadius * Math.pow(progress, 0.92);
+  const energy = 1 - progress;
+  const energyCurve = energy * energy;
   const colors = getSessionSphereColors();
-  const glowRadius = radius * 1.25;
+  const glowRadius = radius * (1.16 + energy * 0.28);
   const glow = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, glowRadius);
 
-  glow.addColorStop(0, colorWithAlpha(colors.accent, 0.2 * progress));
-  glow.addColorStop(0.55, colorWithAlpha(colors.strong, 0.08 * progress));
+  glow.addColorStop(0, colorWithAlpha(colors.accent, (0.08 + energy * 0.22) * progress));
+  glow.addColorStop(0.55, colorWithAlpha(colors.strong, (0.04 + energy * 0.18) * progress));
   glow.addColorStop(1, colorWithAlpha(colors.strong, 0));
   ctx.fillStyle = glow;
   ctx.beginPath();
   ctx.arc(centerX, centerY, glowRadius, 0, Math.PI * 2);
   ctx.fill();
 
-  const rotationY = time * 0.48;
-  const rotationX = 0.22 + Math.sin(time * 0.27) * 0.16;
+  sphereState.spin += deltaTime * (0.32 + energyCurve * 6.8 * energy);
+  const rotationY = sphereState.spin;
+  const rotationX = 0.22 + Math.sin(time * (0.1 + energy * 4.2)) * 0.46 * energy;
   const cosY = Math.cos(rotationY);
   const sinY = Math.sin(rotationY);
   const cosX = Math.cos(rotationX);
@@ -243,24 +260,30 @@ function renderSessionSphere(timestamp = 0) {
     const rotatedZ = particle.x * sinY + particle.z * cosY;
     const rotatedY = particle.y * cosX - rotatedZ * sinX;
     const depthZ = particle.y * sinX + rotatedZ * cosX;
-    const pulse = Math.sin(time * 2.2 + particle.phase) * 0.12;
-    const shellRadius = radius * (1 + pulse * progress);
+    const particleEnergy = energy * (0.9 + particle.size * 0.45);
+    const chaos = energyCurve * energy;
+    const pulse = Math.sin(time * (0.9 + energyCurve * 18) + particle.phase) * (0.01 + chaos * 0.9);
+    const tremor = Math.sin(time * (2.4 + energy * 32) + particle.phase * 1.7) * chaos;
+    const crossTremor = Math.cos(time * (1.8 + energy * 27) + particle.phase * 2.3) * chaos;
+    const shellRadius = radius * (1 + particle.radiusOffset + pulse * particleEnergy);
     const depth = (depthZ + 1) / 2;
     const perspective = 0.74 + depth * 0.34;
+    const jitter = radius * 0.34 * tremor * particleEnergy;
+    const swirl = radius * 0.2 * crossTremor * particleEnergy;
 
     return {
-      x: centerX + rotatedX * shellRadius * perspective,
-      y: centerY + rotatedY * shellRadius * perspective,
+      x: centerX + (rotatedX * shellRadius + particle.y * jitter - rotatedY * swirl) * perspective,
+      y: centerY + (rotatedY * shellRadius + rotatedX * jitter + rotatedX * swirl) * perspective,
       depth,
       index,
-      radius: (1.2 + depth * 2.6 + particle.size) * dpr * Math.pow(progress, 0.45)
+      radius: (1.2 + depth * 2.6 + particle.size + energy * 3.2) * dpr * Math.pow(progress, 0.45) * SPHERE_PARTICLE_SIZE_SCALE
     };
   });
 
   projected
     .sort((a, b) => a.depth - b.depth)
     .forEach((particle) => {
-      const alpha = (0.18 + particle.depth * 0.68) * Math.min(1, progress * 1.7);
+      const alpha = (0.18 + particle.depth * 0.68) * Math.min(1, progress * (1.7 + energy * 7.5));
       const color = particle.index % 3 === 0
         ? colors.blue
         : particle.depth > 0.62
@@ -276,16 +299,36 @@ function renderSessionSphere(timestamp = 0) {
 
 function getSessionSphereColors() {
   const styles = getComputedStyle(document.documentElement);
+  const isVibrant = !hasTimerView || timer.running || elements.sessionPanel.hidden;
+  const colorMode = isVibrant
+    ? { saturation: 1.35, brightness: 1.22 }
+    : { saturation: 0.42, brightness: 0.72 };
 
   return {
-    accent: styles.getPropertyValue("--accent").trim() || "#71b9ee",
-    strong: styles.getPropertyValue("--accent-strong").trim() || "#24d0b0",
-    blue: styles.getPropertyValue("--accent-blue").trim() || "#4aa6f6"
+    accent: tuneHexColor(styles.getPropertyValue("--accent").trim() || "#71b9ee", colorMode),
+    strong: tuneHexColor(styles.getPropertyValue("--accent-strong").trim() || "#24d0b0", colorMode),
+    blue: tuneHexColor(styles.getPropertyValue("--accent-blue").trim() || "#4aa6f6", colorMode)
+  };
+}
+
+function tuneHexColor(color, { saturation, brightness }) {
+  const rgb = parseHexColor(color);
+
+  if (!rgb) {
+    return color;
+  }
+
+  const gray = rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114;
+
+  return {
+    r: clamp(Math.round((gray + (rgb.r - gray) * saturation) * brightness), 0, 255),
+    g: clamp(Math.round((gray + (rgb.g - gray) * saturation) * brightness), 0, 255),
+    b: clamp(Math.round((gray + (rgb.b - gray) * saturation) * brightness), 0, 255)
   };
 }
 
 function colorWithAlpha(color, alpha) {
-  const rgb = parseHexColor(color);
+  const rgb = typeof color === "string" ? parseHexColor(color) : color;
 
   if (!rgb) {
     return color;
@@ -561,12 +604,13 @@ function updateTimerView() {
     return;
   }
 
-  elements.sessionLabel.textContent = timer.running ? label : `${label} paused`;
   elements.durationMinutes.type = "text";
   elements.durationMinutes.value = formatTimer(timer.remainingSeconds);
   elements.durationMinutes.readOnly = true;
   setSessionSphereProgress(remainingRatio);
-  elements.pauseButton.textContent = timer.running ? "Pause" : "Resume";
+  if (elements.pauseButton) {
+    elements.pauseButton.textContent = timer.running ? "Pause" : "Resume";
+  }
 
   if (!elements.sessionPanel.hidden) {
     document.title = `${formatTimer(timer.remainingSeconds)} - ${label}`;
@@ -830,7 +874,7 @@ function renderChart() {
 }
 
 function bindEvents() {
-  document.addEventListener("keydown", handleSettingsShortcut);
+  document.addEventListener("keydown", handleAppShortcut);
 
   if (hasSettingsView) {
     elements.themeOptions.addEventListener("change", (event) => {
@@ -851,7 +895,9 @@ function bindEvents() {
   if (hasTimerView) {
     elements.durationMinutes.addEventListener("keydown", handleDurationInputKeydown);
     elements.startButton.addEventListener("click", startSession);
-    elements.pauseButton.addEventListener("click", pauseOrResume);
+    if (elements.pauseButton) {
+      elements.pauseButton.addEventListener("click", pauseOrResume);
+    }
     window.addEventListener("resize", () => renderSessionSphere(performance.now()));
   }
 }
@@ -895,7 +941,7 @@ function updateGoalFromSettings() {
   updateProgressView();
 }
 
-function handleSettingsShortcut(event) {
+function handleAppShortcut(event) {
   const activeTag = document.activeElement?.tagName;
   const isTyping = ["INPUT", "TEXTAREA", "SELECT"].includes(activeTag);
 
@@ -921,17 +967,20 @@ function handleSettingsShortcut(event) {
     return;
   }
 
-  if (event.key.toLowerCase() !== "s") {
-    settingsShortcutStreak = 0;
+  const shortcutKey = event.key.toLowerCase();
+
+  if (shortcutKey === "m") {
+    settingsShortcutStreak += 1;
+
+    if (settingsShortcutStreak >= SETTINGS_SHORTCUT_COUNT) {
+      settingsShortcutStreak = 0;
+      window.location.href = "menu.html";
+    }
+
     return;
   }
 
-  settingsShortcutStreak += 1;
-
-  if (settingsShortcutStreak >= SETTINGS_SHORTCUT_COUNT) {
-    settingsShortcutStreak = 0;
-    window.location.href = "settings.html";
-  }
+  settingsShortcutStreak = 0;
 }
 
 function toggleTimerFromKeyboard() {

@@ -6,6 +6,7 @@ Desktop.ini
 # Editor and local workspace files
 .vscode/
 .idea/
+notes/
 *.swp
 *.swo
 

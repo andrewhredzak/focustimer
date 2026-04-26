@@ -9,8 +9,8 @@ const SETTINGS_SHORTCUT_COUNT = 5;
 const DEFAULT_ALARM = "alarm-1";
 const ALARM_REPEAT_COUNT = 3;
 const ALARM_SOUNDS = {
-  "alarm-1": "audio/alarm-1.ogg",
-  "alarm-2": "audio/alarm-2.ogg"
+  "alarm-1": "assets/audio/alarm-1.ogg",
+  "alarm-2": "assets/audio/alarm-2.ogg"
 };
 const SPHERE_PARTICLE_COUNT = 180;
 

@@ -8,13 +8,8 @@ const THEME_NAMES = ["graphite", "ocean", "forest", "ember", "archive", "nasa"];
 const SETTINGS_SHORTCUT_COUNT = 3;
 const DEFAULT_ALARM = "alarm-1";
 const ALARM_REPEAT_COUNT = 3;
-const DEMO_DAILY_STATS = [
-  { offset: -4, focusMinutes: 82, starts: 3, pauses: 1, stops: 0, completed: 2 },
-  { offset: -3, focusMinutes: 118, starts: 4, pauses: 2, stops: 1, completed: 3 },
-  { offset: -2, focusMinutes: 96, starts: 3, pauses: 1, stops: 0, completed: 2 },
-  { offset: -1, focusMinutes: 135, starts: 5, pauses: 3, stops: 1, completed: 4 },
-  { offset: 0, focusMinutes: 64, starts: 2, pauses: 1, stops: 0, completed: 1 }
-];
+const CLEAR_TODAY_DATA_DATE = "2026-05-03";
+const CLEAR_TODAY_DATA_MIGRATION = `clear-data-${CLEAR_TODAY_DATA_DATE}`;
 const ALARM_SOUNDS = {
   "alarm-1": "assets/audio/alarm-1.ogg",
   "alarm-2": "assets/audio/alarm-2.ogg"
@@ -60,6 +55,7 @@ const defaultState = {
   theme: DEFAULT_THEME,
   alarmSound: DEFAULT_ALARM,
   sphereEnabled: true,
+  migrations: [],
   db: {
     version: DB_VERSION,
     daily: {},
@@ -68,7 +64,7 @@ const defaultState = {
 };
 
 let state = loadState();
-seedRecentDemoStats();
+clearDateDataOnce(CLEAR_TODAY_DATA_DATE, CLEAR_TODAY_DATA_MIGRATION);
 applyTheme(state.theme);
 
 let timer = {
@@ -438,39 +434,6 @@ function createDayStats() {
   };
 }
 
-function seedRecentDemoStats() {
-  let seededAnyDay = false;
-
-  DEMO_DAILY_STATS.forEach((demoDay) => {
-    const date = todayKey(demoDay.offset);
-    const existingDay = state.db.daily[date] || createDayStats();
-    const hasExistingDayStats = (
-      Number(existingDay.focusSeconds) ||
-      Number(existingDay.starts) ||
-      Number(existingDay.pauses) ||
-      Number(existingDay.stops) ||
-      Number(existingDay.completed)
-    );
-
-    if (hasExistingDayStats) {
-      return;
-    }
-
-    state.db.daily[date] = {
-      focusSeconds: demoDay.focusMinutes * 60,
-      starts: demoDay.starts,
-      pauses: demoDay.pauses,
-      stops: demoDay.stops,
-      completed: demoDay.completed
-    };
-    seededAnyDay = true;
-  });
-
-  if (seededAnyDay) {
-    saveState();
-  }
-}
-
 function loadState() {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -485,6 +448,7 @@ function loadState() {
       theme: THEME_NAMES.includes(stored.theme) ? stored.theme : DEFAULT_THEME,
       alarmSound: ALARM_SOUNDS[stored.alarmSound] ? stored.alarmSound : DEFAULT_ALARM,
       sphereEnabled: stored.sphereEnabled !== false,
+      migrations: Array.isArray(stored.migrations) ? stored.migrations : [],
       db: normalizeDb(stored)
     };
 
@@ -524,6 +488,17 @@ function normalizeDb(stored) {
   });
 
   return db;
+}
+
+function clearDateDataOnce(date, migrationName) {
+  if (state.migrations.includes(migrationName)) {
+    return;
+  }
+
+  delete state.db.daily[date];
+  state.db.sessions = state.db.sessions.filter((session) => session.date !== date);
+  state.migrations.push(migrationName);
+  saveState();
 }
 
 function saveState() {
